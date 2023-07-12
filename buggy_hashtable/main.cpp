@@ -118,7 +118,7 @@ int main() {
             Ensure(e->value==i);
          }
       }
-      // erase all
+      // erase some more
       for (uint64_t i=0; i<size/2; i++) {
          if ((i%3)==0) {
             Ensure(!h.erase(i));
