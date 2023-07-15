@@ -42,11 +42,20 @@ struct Hashtable {
    }
 
    ~Hashtable() {
+      // modification starts here
+      for (auto pos=0ul; pos < htSize; ++pos) {
+         for (auto* entry = ht[pos]; entry;) {
+            auto* next = entry->next;
+            delete entry;
+            entry = next;
+         }
+      }
+      // modification ends here
       munmap(ht, htSize);
    }
 
    Entry* lookup(uint64_t key) {
-      for (Entry* e=ht[hashKey(key)]; e; e=e->next)
+      for (Entry* e=ht[hashKey(key) & mask]; e; e=e->next)
          if (e->key==key)
             return e;
       return nullptr;
@@ -60,25 +69,39 @@ struct Hashtable {
       } else {
          uint64_t pos = hashKey(key) & mask;
          Entry* newEntry = new Entry();
-         ht[pos] = newEntry;
+         // modification starts here
          newEntry->key = key;
          newEntry->value = value;
          newEntry->next = ht[pos];
+         ht[pos] = newEntry;
+         // modification ends here
          return true;
       }
    }
 
    bool erase(uint64_t key) {
+      // this function is almost completely modified
       uint64_t pos = hashKey(key) & mask;
-      Entry** ePtr = &ht[pos];
-      while (Entry* e=(*ePtr)) {
-         if (e->key==key) {
-            delete e;
-            return true;
-         }
-         ePtr = &e->next;
+      // empty bucket, return false
+      if (!ht[pos]) return false;
+      // a slightly different procedure if the key is first in the bucket
+      if (ht[pos]->key==key) {
+         auto* next = ht[pos]->next;
+         delete ht[pos];
+         ht[pos] = next;
+         return true;
       }
-      return false;
+      auto* prev = ht[pos], *lead = ht[pos]->next;
+      while (lead && lead->key!=key) {
+         prev = lead;
+         lead = lead->next;
+      }
+      // if the key has not been found in the bucket, return false
+      if (!lead) return false;
+      // else relink and delete
+      prev->next = lead->next;
+      delete lead;
+      return true;
    }
 };
 
